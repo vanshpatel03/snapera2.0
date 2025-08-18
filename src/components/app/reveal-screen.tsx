@@ -1,11 +1,11 @@
 'use client';
 
-import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download, Share2, Sparkles, Repeat } from 'lucide-react';
+import { Download, Share2, Sparkles, Repeat, PlayCircle, Image as ImageIcon } from 'lucide-react';
 import type { PersonaResult } from './home-page';
 import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
 
 interface RevealScreenProps {
   persona: PersonaResult;
@@ -14,11 +14,12 @@ interface RevealScreenProps {
 
 export function RevealScreen({ persona, onTryAgain }: RevealScreenProps) {
   const { toast } = useToast();
+  const [showVideo, setShowVideo] = useState(true);
 
   const handleDownload = () => {
     const link = document.createElement('a');
-    link.href = persona.artisticPortraitDataUri;
-    link.download = `${persona.name.replace(/\s+/g, '_')}_EraSnap.png`;
+    link.href = showVideo ? persona.animatedPortraitDataUri : persona.artisticPortraitDataUri;
+    link.download = `${persona.name.replace(/\s+/g, '_')}_EraSnap.${showVideo ? 'mp4' : 'png'}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -35,13 +36,16 @@ export function RevealScreen({ persona, onTryAgain }: RevealScreenProps) {
     }
 
     try {
-      const response = await fetch(persona.artisticPortraitDataUri);
+      const dataUri = showVideo ? persona.animatedPortraitDataUri : persona.artisticPortraitDataUri;
+      const extension = showVideo ? 'mp4' : 'png';
+      
+      const response = await fetch(dataUri);
       const blob = await response.blob();
-      const file = new File([blob], `${persona.name.replace(/\s+/g, '_')}_EraSnap.png`, { type: blob.type });
+      const file = new File([blob], `${persona.name.replace(/\s+/g, '_')}_EraSnap.${extension}`, { type: blob.type });
 
       await navigator.share({
         title: 'My EraSnap Persona!',
-        text: `I discovered my historical persona with EraSnap: ${persona.name}, from the ${persona.historicalEra}! Check out EraSnap to find yours!`,
+        text: `I discovered my historical persona with EraSnap: ${persona.name}, from the ${persona.historicalEra}! Check out my living portrait!`,
         files: [file],
       });
     } catch (error) {
@@ -63,16 +67,36 @@ export function RevealScreen({ persona, onTryAgain }: RevealScreenProps) {
 
       <div className="grid md:grid-cols-5 gap-8">
         <div className="md:col-span-3">
-          <Card className="overflow-hidden border-2 border-accent shadow-lg shadow-accent/20">
-            <Image
-              src={persona.artisticPortraitDataUri}
-              alt={`Artistic portrait of ${persona.name}`}
-              width={1024}
-              height={1024}
-              className="w-full h-auto object-cover aspect-square"
-              data-ai-hint="historic portrait"
-              priority
-            />
+          <Card className="overflow-hidden border-2 border-accent shadow-lg shadow-accent/20 relative">
+            {showVideo ? (
+                <video
+                    src={persona.animatedPortraitDataUri}
+                    width={1024}
+                    height={1024}
+                    className="w-full h-auto object-cover aspect-square"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                />
+            ) : (
+                <img
+                    src={persona.artisticPortraitDataUri}
+                    alt={`Artistic portrait of ${persona.name}`}
+                    width={1024}
+                    height={1024}
+                    className="w-full h-auto object-cover aspect-square"
+                    data-ai-hint="historic portrait"
+                />
+            )}
+            <div className="absolute bottom-2 right-2 flex gap-2">
+                 <Button variant="outline" size="icon" onClick={() => setShowVideo(true)} className={`bg-black/50 ${showVideo ? 'border-accent text-accent' : 'border-white/50 text-white/80'}`}>
+                    <PlayCircle />
+                 </Button>
+                 <Button variant="outline" size="icon" onClick={() => setShowVideo(false)} className={`bg-black/50 ${!showVideo ? 'border-accent text-accent' : 'border-white/50 text-white/80'}`}>
+                    <ImageIcon />
+                 </Button>
+            </div>
           </Card>
         </div>
 

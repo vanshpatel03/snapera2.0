@@ -11,10 +11,15 @@ const loadingTexts = [
   "Unveiling your historical doppelgänger...",
 ];
 
-export function LoadingScreen() {
-  const [text, setText] = useState(loadingTexts[0]);
+export function LoadingScreen({ customText }: { customText?: string | null }) {
+  const [text, setText] = useState(customText || loadingTexts[0]);
 
   useEffect(() => {
+    if (customText) {
+      setText(customText);
+      return;
+    }
+
     const interval = setInterval(() => {
       setText(prevText => {
         const currentIndex = loadingTexts.indexOf(prevText);
@@ -24,7 +29,7 @@ export function LoadingScreen() {
     }, 2500);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [customText]);
 
   return (
     <div className="flex flex-col items-center justify-center gap-6 text-center animate-in fade-in duration-1000">
