@@ -35,13 +35,6 @@ export async function generateArtisticPortrait(
   return generateArtisticPortraitFlow(input);
 }
 
-const artisticPortraitPrompt = ai.definePrompt({
-  name: 'artisticPortraitPrompt',
-  input: {schema: GenerateArtisticPortraitInputSchema},
-  output: {schema: GenerateArtisticPortraitOutputSchema},
-  prompt: `Generate an artistic portrait of the person in the photo in the style of the {{historicalEra}} era.\n\nPhoto: {{media url=photoDataUri}}\n\nEnsure the generated portrait reflects the clothing, hair style, and artistic style of the {{historicalEra}} era. The output should be a data URI representing the generated image.`,
-});
-
 const generateArtisticPortraitFlow = ai.defineFlow(
   {
     name: 'generateArtisticPortraitFlow',
@@ -52,7 +45,13 @@ const generateArtisticPortraitFlow = ai.defineFlow(
     const {media} = await ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
       prompt: [
-        {text: `Generate an artistic portrait of a person in the style of the ${input.historicalEra} era.`},
+        {text: `You are a master portrait artist. Your specialty is to capture the likeness of a person and paint them in a specific historical style.
+
+Generate an artistic portrait of the person in the provided photo, rendered in the style of the **{{historicalEra}}** era.
+
+**Crucially, you must preserve the distinct facial features of the person in the photo.** The final portrait should look like the same person, transported back in time.
+
+Pay close attention to the artistic conventions of the {{historicalEra}}, including the clothing, hairstyle, lighting, and the texture of the paint.`},
         {media: {url: input.photoDataUri}},
       ],
       config: {
