@@ -1,68 +1,43 @@
 'use server';
+
 /**
- * @fileOverview Generates an artistic portrait in the style of the determined historical era,
- * while preserving the user’s unique facial features.
+ * Analyze a selfie → find the best historical era + describe facial features.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-const GenerateArtisticPortraitInputSchema = z.object({
-  photoDataUri: z
-    .string()
-    .describe(
-      "A user-provided selfie, as a data URI that must include a MIME type and use Base64 encoding. Format: 'data:<mimetype>;base64,<encoded_data>'."
-    ),
-  historicalEra: z.string().describe('The historical era determined for the user.'),
-  facialDescription: z
-    .string()
-    .describe('Detailed description of the person’s facial features to ensure likeness.'),
+const AnalyzeSelfieInputSchema = z.object({
+  photoDataUri: z.string().describe("Selfie as Base64 data URI."),
 });
-export type GenerateArtisticPortraitInput = z.infer<typeof GenerateArtisticPortraitInputSchema>;
+export type AnalyzeSelfieInput = z.infer<typeof AnalyzeSelfieInputSchema>;
 
-const GenerateArtisticPortraitOutputSchema = z.object({
-  artisticPortraitDataUri: z
-    .string()
-    .describe('The AI-generated artistic portrait in the style of the determined historical era, as a data URI.'),
+const AnalyzeSelfieOutputSchema = z.object({
+  historicalEra: z.string().describe('The best historical era for this person.'),
+  facialDescription: z.string().describe('Detailed description of face (eyes, nose, jaw, lips, hair, expression).'),
 });
-export type GenerateArtisticPortraitOutput = z.infer<typeof GenerateArtisticPortraitOutputSchema>;
+export type AnalyzeSelfieOutput = z.infer<typeof AnalyzeSelfieOutputSchema>;
 
-export async function generateArtisticPortrait(
-  input: GenerateArtisticPortraitInput
-): Promise<GenerateArtisticPortraitOutput> {
-  return generateArtisticPortraitFlow(input);
-}
+const analyzeSelfiePrompt = ai.definePrompt({
+  name: 'analyzeSelfiePrompt',
+  input: { schema: AnalyzeSelfieInputSchema },
+  output: { schema: AnalyzeSelfieOutputSchema },
+  prompt: `You are an expert in art history and facial analysis.
+Analyze the given selfie and return:
+1. historicalEra → The single best era (Renaissance, Baroque, Victorian, Roaring Twenties, etc.)
+2. facialDescription → Very specific traits (eye color, nose, lips, chin, hairstyle, expression).
 
-const generateArtisticPortraitFlow = ai.defineFlow(
+Selfie: {{media url=photoDataUri}}`,
+});
+
+export const analyzeSelfie = ai.defineFlow(
   {
-    name: 'generateArtisticPortraitFlow',
-    inputSchema: GenerateArtisticPortraitInputSchema,
-    outputSchema: GenerateArtisticPortraitOutputSchema,
+    name: 'analyzeSelfieFlow',
+    inputSchema: AnalyzeSelfieInputSchema,
+    outputSchema: AnalyzeSelfieOutputSchema,
   },
-  async input => {
-    const { media } = await ai.generate({
-      model: 'googleai/gemini-2.0-flash-preview-image-generation',
-      prompt: [
-        {
-          text: `You are a master portrait artist. Your specialty is capturing the exact likeness of a person.
-
-Use the provided selfie AND the following extracted face description to guarantee accuracy:
-
-Facial features: ${input.facialDescription}
-
-Now, generate an artistic portrait of the same person in the **${input.historicalEra}** style.
-- Clothing, background, and style must match the ${input.historicalEra} era.
-- The face MUST look like the same individual described above.
-- Keep realism and fine details.`},
-        { media: { url: input.photoDataUri } },
-      ],
-      config: {
-        responseModalities: ['TEXT', 'IMAGE'],
-      },
-    });
-
-    return {
-      artisticPortraitDataUri: media!.url,
-    };
+  async (input) => {
+    const { output } = await analyzeSelfiePrompt(input);
+    return output!;
   }
 );
