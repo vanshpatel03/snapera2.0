@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { analyzeSelfie, type AnalyzeSelfieOutput } from '@/ai/flows/analyze-selfie';
 import { generateArtisticPortrait, type GenerateArtisticPortraitOutput } from '@/ai/flows/generate-artistic-portrait';
 import { generatePersonaDetails, type GeneratePersonaDetailsOutput } from '@/ai/flows/generate-persona-details';
-import { animatePortrait, type AnimatePortraitOutput } from '@/ai/flows/animate-portrait';
 import { useToast } from "@/hooks/use-toast";
 import { UploadForm } from './upload-form';
 import { LoadingScreen } from './loading-screen';
@@ -12,7 +11,7 @@ import { RevealScreen } from './reveal-screen';
 import { Header } from './header';
 
 type Step = 'upload' | 'loading' | 'result';
-export type PersonaResult = AnalyzeSelfieOutput & GenerateArtisticPortraitOutput & GeneratePersonaDetailsOutput & AnimatePortraitOutput;
+export type PersonaResult = AnalyzeSelfieOutput & GenerateArtisticPortraitOutput & GeneratePersonaDetailsOutput & { animatedPortraitDataUri: string | null };
 
 export function HomePage() {
   const [step, setStep] = useState<Step>('upload');
@@ -33,29 +32,26 @@ export function HomePage() {
       const { historicalEra } = await analyzeSelfie({ photoDataUri: selfieDataUri });
       if (!historicalEra) throw new Error("Could not determine a historical era.");
       setLoadingMessage("Consulting the chronomancers...");
-
-      const { artisticPortraitDataUri } = await generateArtisticPortrait({
+      
+      const artisticPortraitPromise = generateArtisticPortrait({
         photoDataUri: selfieDataUri,
         historicalEra,
       });
-      if (!artisticPortraitDataUri) throw new Error("Could not generate a portrait.");
-      setLoadingMessage("Painting your past life...");
 
       const personaDetailsPromise = generatePersonaDetails({
         historicalEra,
         portraitDescription: `A portrait in the style of the ${historicalEra}.`,
       });
+      
+      const [artisticPortraitResult, personaDetailsResult] = await Promise.all([artisticPortraitPromise, personaDetailsPromise]);
+      
+      const { artisticPortraitDataUri } = artisticPortraitResult;
+      if (!artisticPortraitDataUri) throw new Error("Could not generate a portrait.");
+      setLoadingMessage("Painting your past life...");
 
-      setLoadingMessage("Bringing your portrait to life...");
-      const animationPromise = animatePortrait({ portraitDataUri: artisticPortraitDataUri });
-
-      const [personaDetailsResult, animationResult] = await Promise.all([personaDetailsPromise, animationPromise]);
 
       const { name, backstory } = personaDetailsResult;
       if (!name || !backstory) throw new Error("Could not generate persona details.");
-
-      const { animatedPortraitDataUri } = animationResult;
-      if (!animatedPortraitDataUri) throw new Error("Could not animate the portrait.");
       
       setLoadingMessage("Unveiling your historical doppelgänger...");
 
@@ -64,7 +60,7 @@ export function HomePage() {
         artisticPortraitDataUri,
         name,
         backstory,
-        animatedPortraitDataUri,
+        animatedPortraitDataUri: null, // No animation for now
       });
       setStep('result');
 

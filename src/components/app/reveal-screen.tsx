@@ -14,12 +14,14 @@ interface RevealScreenProps {
 
 export function RevealScreen({ persona, onTryAgain }: RevealScreenProps) {
   const { toast } = useToast();
-  const [showVideo, setShowVideo] = useState(true);
+  const [showVideo, setShowVideo] = useState(false);
 
   const handleDownload = () => {
     const link = document.createElement('a');
-    link.href = showVideo ? persona.animatedPortraitDataUri : persona.artisticPortraitDataUri;
-    link.download = `${persona.name.replace(/\s+/g, '_')}_EraSnap.${showVideo ? 'mp4' : 'png'}`;
+    const dataUri = persona.animatedPortraitDataUri && showVideo ? persona.animatedPortraitDataUri : persona.artisticPortraitDataUri;
+    const extension = persona.animatedPortraitDataUri && showVideo ? 'mp4' : 'png';
+    link.href = dataUri;
+    link.download = `${persona.name.replace(/\s+/g, '_')}_EraSnap.${extension}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -36,8 +38,8 @@ export function RevealScreen({ persona, onTryAgain }: RevealScreenProps) {
     }
 
     try {
-      const dataUri = showVideo ? persona.animatedPortraitDataUri : persona.artisticPortraitDataUri;
-      const extension = showVideo ? 'mp4' : 'png';
+      const dataUri = persona.animatedPortraitDataUri && showVideo ? persona.animatedPortraitDataUri : persona.artisticPortraitDataUri;
+      const extension = persona.animatedPortraitDataUri && showVideo ? 'mp4' : 'png';
       
       const response = await fetch(dataUri);
       const blob = await response.blob();
@@ -45,7 +47,7 @@ export function RevealScreen({ persona, onTryAgain }: RevealScreenProps) {
 
       await navigator.share({
         title: 'My EraSnap Persona!',
-        text: `I discovered my historical persona with EraSnap: ${persona.name}, from the ${persona.historicalEra}! Check out my living portrait!`,
+        text: `I discovered my historical persona with EraSnap: ${persona.name}, from the ${persona.historicalEra}! Check out my portrait!`,
         files: [file],
       });
     } catch (error) {
@@ -58,6 +60,8 @@ export function RevealScreen({ persona, onTryAgain }: RevealScreenProps) {
     }
   };
 
+  const hasVideo = !!persona.animatedPortraitDataUri;
+
   return (
     <div className="w-full max-w-4xl animate-in fade-in duration-1000 space-y-8">
       <div className="text-center">
@@ -68,9 +72,9 @@ export function RevealScreen({ persona, onTryAgain }: RevealScreenProps) {
       <div className="grid md:grid-cols-5 gap-8">
         <div className="md:col-span-3">
           <Card className="overflow-hidden border-2 border-accent shadow-lg shadow-accent/20 relative">
-            {showVideo ? (
+            {hasVideo && showVideo ? (
                 <video
-                    src={persona.animatedPortraitDataUri}
+                    src={persona.animatedPortraitDataUri!}
                     width={1024}
                     height={1024}
                     className="w-full h-auto object-cover aspect-square"
@@ -89,14 +93,16 @@ export function RevealScreen({ persona, onTryAgain }: RevealScreenProps) {
                     data-ai-hint="historic portrait"
                 />
             )}
-            <div className="absolute bottom-2 right-2 flex gap-2">
-                 <Button variant="outline" size="icon" onClick={() => setShowVideo(true)} className={`bg-black/50 ${showVideo ? 'border-accent text-accent' : 'border-white/50 text-white/80'}`}>
-                    <PlayCircle />
-                 </Button>
-                 <Button variant="outline" size="icon" onClick={() => setShowVideo(false)} className={`bg-black/50 ${!showVideo ? 'border-accent text-accent' : 'border-white/50 text-white/80'}`}>
-                    <ImageIcon />
-                 </Button>
-            </div>
+            {hasVideo && (
+              <div className="absolute bottom-2 right-2 flex gap-2">
+                   <Button variant="outline" size="icon" onClick={() => setShowVideo(true)} className={`bg-black/50 ${showVideo ? 'border-accent text-accent' : 'border-white/50 text-white/80'}`}>
+                      <PlayCircle />
+                   </Button>
+                   <Button variant="outline" size="icon" onClick={() => setShowVideo(false)} className={`bg-black/50 ${!showVideo ? 'border-accent text-accent' : 'border-white/50 text-white/80'}`}>
+                      <ImageIcon />
+                   </Button>
+              </div>
+            )}
           </Card>
         </div>
 
