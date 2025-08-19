@@ -1,60 +1,68 @@
 'use server';
-
 /**
- * @fileOverview Determines the most fitting historical era for a user's selfie,
- * and extracts key facial features to improve likeness in portrait generation.
+ * @fileOverview Generates an artistic portrait in the style of the determined historical era,
+ * while preserving the user’s unique facial features.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-const AnalyzeSelfieInputSchema = z.object({
+const GenerateArtisticPortraitInputSchema = z.object({
   photoDataUri: z
     .string()
     .describe(
-      "A selfie photo, as a data URI that must include a MIME type and use Base64 encoding. Format: 'data:<mimetype>;base64,<encoded_data>'."
+      "A user-provided selfie, as a data URI that must include a MIME type and use Base64 encoding. Format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
-});
-export type AnalyzeSelfieInput = z.infer<typeof AnalyzeSelfieInputSchema>;
-
-const AnalyzeSelfieOutputSchema = z.object({
-  historicalEra: z
-    .string()
-    .describe('The most fitting historical era for the user.'),
+  historicalEra: z.string().describe('The historical era determined for the user.'),
   facialDescription: z
     .string()
-    .describe('Detailed description of the person’s facial features (eyes, nose, jaw, mouth, hair, expression).'),
+    .describe('Detailed description of the person’s facial features to ensure likeness.'),
 });
-export type AnalyzeSelfieOutput = z.infer<typeof AnalyzeSelfieOutputSchema>;
+export type GenerateArtisticPortraitInput = z.infer<typeof GenerateArtisticPortraitInputSchema>;
 
-export async function analyzeSelfie(input: AnalyzeSelfieInput): Promise<AnalyzeSelfieOutput> {
-  return analyzeSelfieFlow(input);
+const GenerateArtisticPortraitOutputSchema = z.object({
+  artisticPortraitDataUri: z
+    .string()
+    .describe('The AI-generated artistic portrait in the style of the determined historical era, as a data URI.'),
+});
+export type GenerateArtisticPortraitOutput = z.infer<typeof GenerateArtisticPortraitOutputSchema>;
+
+export async function generateArtisticPortrait(
+  input: GenerateArtisticPortraitInput
+): Promise<GenerateArtisticPortraitOutput> {
+  return generateArtisticPortraitFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'analyzeSelfiePrompt',
-  input: { schema: AnalyzeSelfieInputSchema },
-  output: { schema: AnalyzeSelfieOutputSchema },
-  prompt: `You are an expert in art history and facial analysis. 
-Step 1: Carefully analyze the person's face from the selfie.
-Step 2: Extract their distinct features (eye color/shape, nose, lips, chin/jawline, hairstyle, expression).
-Step 3: Suggest the single most fitting historical era (Renaissance, Baroque, Victorian, Roaring Twenties, etc.).
-
-Return:
-- historicalEra → The single best era.
-- facialDescription → A precise description of their facial traits.
-
-Selfie: {{media url=photoDataUri}}`,
-});
-
-const analyzeSelfieFlow = ai.defineFlow(
+const generateArtisticPortraitFlow = ai.defineFlow(
   {
-    name: 'analyzeSelfieFlow',
-    inputSchema: AnalyzeSelfieInputSchema,
-    outputSchema: AnalyzeSelfieOutputSchema,
+    name: 'generateArtisticPortraitFlow',
+    inputSchema: GenerateArtisticPortraitInputSchema,
+    outputSchema: GenerateArtisticPortraitOutputSchema,
   },
   async input => {
-    const { output } = await prompt(input);
-    return output!;
+    const { media } = await ai.generate({
+      model: 'googleai/gemini-2.0-flash-preview-image-generation',
+      prompt: [
+        {
+          text: `You are a master portrait artist. Your specialty is capturing the exact likeness of a person.
+
+Use the provided selfie AND the following extracted face description to guarantee accuracy:
+
+Facial features: ${input.facialDescription}
+
+Now, generate an artistic portrait of the same person in the **${input.historicalEra}** style.
+- Clothing, background, and style must match the ${input.historicalEra} era.
+- The face MUST look like the same individual described above.
+- Keep realism and fine details.`},
+        { media: { url: input.photoDataUri } },
+      ],
+      config: {
+        responseModalities: ['TEXT', 'IMAGE'],
+      },
+    });
+
+    return {
+      artisticPortraitDataUri: media!.url,
+    };
   }
 );
