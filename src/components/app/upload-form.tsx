@@ -1,143 +1,105 @@
-'use client';
+"use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { UploadCloud, Video } from "lucide-react";
-import { useState } from "react";
+import { analyzeSelfie } from "@/ai/flows/analyze-selfie";
+import { generateArtisticPortrait } from "@/ai/flows/generate-artistic-portrait";
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+// 🔥 Pipeline function
+async function processPortrait(photoDataUri: string) {
+  // Step 1: analyze selfie → era + facial description
+  const { historicalEra, facialDescription } = await analyzeSelfie({ photoDataUri });
 
-const formSchema = z.object({
-  selfie: z
-    .custom<FileList>()
-    .refine((files) => files?.length === 1, "A selfie is required.")
-    .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
-    .refine(
-      (files) => ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type),
-      ".jpg, .jpeg, .png and .webp files are accepted."
-    ),
-});
+  // Step 2: generate portrait using both inputs
+  const { artisticPortraitDataUri } = await generateArtisticPortrait({
+    photoDataUri,
+    historicalEra,
+    facialDescription,
+  });
 
-interface UploadFormProps {
-  onUpload: (dataUri: string) => void;
-  generationCount: number;
+  return { artisticPortraitDataUri, historicalEra, facialDescription };
 }
 
-export function UploadForm({ onUpload, generationCount }: UploadFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [fileName, setFileName] = useState<string | null>(null);
+export default function UploadForm() {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{
+    portrait?: string;
+    era?: string;
+    features?: string;
+  }>({});
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-  });
-
-  const fileRef = form.register("selfie", {
-      onChange: (e) => {
-        if(e.target.files && e.target.files.length > 0) {
-            setFileName(e.target.files[0].name);
-        }
-      }
-  });
-
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsSubmitting(true);
-    const file = values.selfie[0];
-    if (!file) {
-      setIsSubmitting(false);
-      return;
+  // Handle file upload
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
     }
+  };
+
+  // Handle form submit
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFile) return;
+
+    setLoading(true);
+    setResult({});
 
     const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
-      onUpload(reader.result as string);
+    reader.onloadend = async () => {
+      const photoDataUri = reader.result as string;
+
+      try {
+        // Run pipeline
+        const { artisticPortraitDataUri, historicalEra, facialDescription } =
+          await processPortrait(photoDataUri);
+
+        setResult({
+          portrait: artisticPortraitDataUri,
+          era: historicalEra,
+          features: facialDescription,
+        });
+      } catch (err) {
+        console.error("Error generating portrait:", err);
+      } finally {
+        setLoading(false);
+      }
     };
-    reader.onerror = (error) => {
-      console.error("Error reading file:", error);
-      setIsSubmitting(false);
-    };
-  }
-  
-  const dailyLimit = 3;
-  const remainingAds = dailyLimit - generationCount;
-  const hasFreeGeneration = generationCount === 0;
+
+    reader.readAsDataURL(selectedFile);
+  };
 
   return (
-    <Card className="w-full max-w-lg bg-card/50 backdrop-blur-sm border-primary/20 shadow-lg shadow-primary/10 animate-in fade-in duration-500">
-      <CardHeader className="text-center">
-        <CardTitle className="font-headline text-3xl">Create Your Persona</CardTitle>
-        <CardDescription className="font-body">
-          Upload a selfie to travel through time and discover your historical self.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="selfie"
-              render={() => (
-                <FormItem>
-                  <FormControl>
-                    <div className="flex items-center justify-center w-full">
-                        <label
-                          htmlFor="selfie-upload"
-                          className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-background/50 hover:bg-muted/50 border-muted-foreground/50 hover:border-accent"
-                        >
-                            <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
-                                <UploadCloud className="w-10 h-10 mb-3 text-muted-foreground" />
-                                {fileName ? (
-                                    <p className="font-semibold text-accent">{fileName}</p>
-                                ) : (
-                                    <>
-                                        <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                                        <p className="text-xs text-muted-foreground">PNG, JPG or WEBP (MAX. 5MB)</p>
-                                    </>
-                                )}
-                            </div>
-                            <Input id="selfie-upload" type="file" className="hidden" accept={ACCEPTED_IMAGE_TYPES.join(",")} {...fileRef} />
-                        </label>
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            {generationCount < dailyLimit ? (
-                <Button type="submit" className="w-full font-bold text-lg py-6 bg-accent hover:bg-accent/90" disabled={isSubmitting}>
-                    {isSubmitting ? 'Traveling through time...' : 
-                     hasFreeGeneration ? 'Discover My Legacy (1 Free)' : 'Watch Ad to Generate'
-                    }
-                    {!hasFreeGeneration && <Video className="ml-2" />}
-                </Button>
-            ) : (
-                <Button className="w-full font-bold text-lg py-6" disabled>
-                    Daily Limit Reached
-                </Button>
-            )}
-          </form>
-        </Form>
-      </CardContent>
-      <CardFooter className="flex justify-center">
-        <p className="text-sm text-muted-foreground">
-            {generationCount < dailyLimit ?
-             `You have ${dailyLimit - generationCount} generation(s) remaining today.`
-             : "Come back tomorrow for more!"
-            }
-        </p>
-      </CardFooter>
-    </Card>
-  )
+    <div className="w-full max-w-md mx-auto p-4 bg-gray-900 rounded-2xl shadow-lg text-white">
+      <h2 className="text-xl font-bold mb-4">Upload your photo</h2>
+
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          className="text-sm"
+        />
+
+        <Button type="submit" disabled={!selectedFile || loading}>
+          {loading ? "Processing..." : "Generate Portrait"}
+        </Button>
+      </form>
+
+      {/* Show results */}
+      {result.portrait && (
+        <div className="mt-6 text-center">
+          <h3 className="text-lg font-semibold">Your Historical Portrait</h3>
+          <img
+            src={result.portrait}
+            alt="Generated portrait"
+            className="mt-3 rounded-lg shadow-md mx-auto"
+          />
+          <p className="mt-3 text-sm">
+            <strong>Era:</strong> {result.era}
+          </p>
+          <p className="mt-1 text-sm italic">{result.features}</p>
+        </div>
+      )}
+    </div>
+  );
 }
