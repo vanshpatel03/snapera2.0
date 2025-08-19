@@ -12,8 +12,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { UploadCloud } from "lucide-react";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { UploadCloud, Video } from "lucide-react";
 import { useState } from "react";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -32,10 +32,10 @@ const formSchema = z.object({
 
 interface UploadFormProps {
   onUpload: (dataUri: string) => void;
-  isSubmitting?: boolean;
+  generationCount: number;
 }
 
-export function UploadForm({ onUpload }: UploadFormProps) {
+export function UploadForm({ onUpload, generationCount }: UploadFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
 
@@ -69,6 +69,10 @@ export function UploadForm({ onUpload }: UploadFormProps) {
       setIsSubmitting(false);
     };
   }
+  
+  const dailyLimit = 3;
+  const remainingAds = dailyLimit - generationCount;
+  const hasFreeGeneration = generationCount === 0;
 
   return (
     <Card className="w-full max-w-lg bg-card/50 backdrop-blur-sm border-primary/20 shadow-lg shadow-primary/10 animate-in fade-in duration-500">
@@ -111,12 +115,29 @@ export function UploadForm({ onUpload }: UploadFormProps) {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full font-bold text-lg py-6 bg-accent hover:bg-accent/90" disabled={isSubmitting}>
-              {isSubmitting ? 'Traveling through time...' : 'Discover My Legacy'}
-            </Button>
+            {generationCount < dailyLimit ? (
+                <Button type="submit" className="w-full font-bold text-lg py-6 bg-accent hover:bg-accent/90" disabled={isSubmitting}>
+                    {isSubmitting ? 'Traveling through time...' : 
+                     hasFreeGeneration ? 'Discover My Legacy (1 Free)' : 'Watch Ad to Generate'
+                    }
+                    {!hasFreeGeneration && <Video className="ml-2" />}
+                </Button>
+            ) : (
+                <Button className="w-full font-bold text-lg py-6" disabled>
+                    Daily Limit Reached
+                </Button>
+            )}
           </form>
         </Form>
       </CardContent>
+      <CardFooter className="flex justify-center">
+        <p className="text-sm text-muted-foreground">
+            {generationCount < dailyLimit ?
+             `You have ${dailyLimit - generationCount} generation(s) remaining today.`
+             : "Come back tomorrow for more!"
+            }
+        </p>
+      </CardFooter>
     </Card>
   )
 }
