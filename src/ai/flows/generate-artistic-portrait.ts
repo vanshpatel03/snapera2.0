@@ -2,13 +2,14 @@
 /**
  * @fileOverview Generates an artistic portrait in the style of the determined historical era.
  *
- * - generateArtisticPortrait - A function that handles the generation of the artistic portrait.
- * - GenerateArtisticPortraitInput - The input type for the generateArtisticPortrait function.
- * - GenerateArtisticPortraitOutput - The return type for the generateArtisticPortrait function.
+ * Enhanced version:
+ * - Stronger face preservation instructions
+ * - Explicit emphasis on identity similarity
+ * - Balanced historical styling
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
 
 const GenerateArtisticPortraitInputSchema = z.object({
   photoDataUri: z
@@ -42,20 +43,32 @@ const generateArtisticPortraitFlow = ai.defineFlow(
     outputSchema: GenerateArtisticPortraitOutputSchema,
   },
   async input => {
-    const {media} = await ai.generate({
+    const { media } = await ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
       prompt: [
-        {text: `You are a master portrait artist. Your specialty is to capture the likeness of a person and paint them in a specific historical style.
+        {
+          text: `
+You are a **master portrait artist**.
 
-Generate an artistic portrait of the person in the provided photo, rendered in the style of the **{{historicalEra}}** era.
+Your absolute priority: 
+- Preserve the **unique facial identity** of the person in the selfie. 
+- The portrait must look like the exact same individual (same face shape, eyes, nose, mouth, jawline, skin tone). 
 
-**Crucially, you must preserve the distinct facial features of the person in the photo.** The final portrait should look like the same person, transported back in time.
+Your artistic task:
+- Render the person as if they lived in the **{{historicalEra}}** era. 
+- Apply clothing, hairstyle, background, and textures typical of that era. 
+- The style should be historically accurate, but the face must stay unmistakably the same as the selfie.
 
-Pay close attention to the artistic conventions of the {{historicalEra}}, including the clothing, hairstyle, lighting, and the texture of the paint.`},
-        {media: {url: input.photoDataUri}},
+⚠️ Never replace or swap the face.
+⚠️ Avoid exaggerations or generic faces.
+⚠️ Focus on realism + identity preservation first, styling second.
+          `,
+        },
+        { media: { url: input.photoDataUri } },
       ],
       config: {
-        responseModalities: ['TEXT', 'IMAGE'],
+        responseModalities: ['IMAGE'], // no need for TEXT in final output
+        temperature: 0.6,              // lower = more accurate, less random
       },
     });
 
