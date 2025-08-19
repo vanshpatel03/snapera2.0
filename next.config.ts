@@ -20,19 +20,14 @@ const nextConfig: NextConfig = {
   },
   serverActions: {
     bodySizeLimit: '5mb',
-    // Increase timeout for video generation.
-    // Default is 60s, which is not enough for Veo.
-    serverActions: {
-        bodySizeLimit: '5mb',
-        // Increase timeout for video generation.
-        // Default is 60s, which is not enough for Veo.
-        // You may need to increase this further depending on video generation time.
-        // Note: this timeout only applies to production builds, not development.
-        // In development, the timeout is effectively unlimited.
-        // https://nextjs.org/docs/app/api-reference/next-config-js/serverActions#executiontimeout
-        executionTimeout: 120,
-    },
-  }
+    // Increase timeout for long-running AI tasks.
+    // Default is 60s.
+    // You may need to increase this further depending on generation time.
+    // Note: this timeout only applies to production builds, not development.
+    // In development, the timeout is effectively unlimited.
+    // https://nextjs.org/docs/app/api-reference/next-config-js/serverActions#executiontimeout
+    executionTimeout: 120,
+  },
 };
 
 export default nextConfig;
